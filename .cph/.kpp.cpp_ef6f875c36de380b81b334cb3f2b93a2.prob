@@ -1,0 +1,1 @@
+{"name":"Local: kpp","url":"d:\\Robotics\\KPP\\kpp.cpp","tests":[{"id":1757929701824,"input":"1 0","output":"Jumlah node (space) jumlah edge: 1 0"}],"interactive":false,"memoryLimit":1024,"timeLimit":3000,"srcPath":"d:\\Robotics\\KPP\\kpp.cpp","group":"local","local":true}
