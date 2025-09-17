@@ -11,8 +11,15 @@ struct Edge
 {
     int length;
     int obs;
-    double energyNeeded = length + obs;
+    double energyNeeded;
     std::vector<Node *> connectedNodes;
+
+    Edge(int paramLength, int paramObs)
+    {
+        length = paramLength;
+        obs = paramObs;
+        energyNeeded = length + obs;
+    }
 
     void TravelEdge(int globalTime)
     {
@@ -48,14 +55,14 @@ struct Node
         ============= HELPERS ==================
 */
 
-Node* GetorCreateNode(std::unordered_map<std::string, Node*> nodeMap, std::string name, NodeType type = NodeType::DEFAULT) {
+Node *GetorCreateNode(std::unordered_map<std::string, Node *> nodeMap, std::string name, NodeType type = NodeType::DEFAULT)
+{
     if (nodeMap.find(name) == nodeMap.end())
     {
         nodeMap[name] = new Node{name, type, {}};
     }
     return nodeMap[name];
 }
-
 
 /*
         ============== CORE FUNCTIONS ===================
@@ -71,20 +78,19 @@ void GetInputs(int *nodeCount, int *edgeCount, std::vector<Edge> *globalEdges, s
     std::cout << std::endl
               << "==== SET UP EDGE ====" << std::endl
               << "format: node1 node2 panjangEdge obstacleEdge" << std::endl;
-    for (int i = 0; i < globalEdges->size(); i++)
+
+    for (int i = 0; i < *edgeCount; i++)
     {
         std::string nodeName1, nodeName2;
         int edgeLength, obs;
-
-        Edge thisEdge = globalEdges->at(i);
 
         std::cout << "Edge ke-" << i << ": ";
         std::cin >> nodeName1 >> nodeName2 >> edgeLength >> obs;
         std::cout << std::endl;
 
-        //Create Nodes
-        Node* n1 = GetorCreateNode(nodeMap, nodeName1);
-        Node* n2 = GetorCreateNode(nodeMap, nodeName2);
+        // Create Nodes
+        Node *n1 = GetorCreateNode(nodeMap, nodeName1);
+        Node *n2 = GetorCreateNode(nodeMap, nodeName2);
 
         // Create edge
         globalEdges->emplace_back(edgeLength, obs);
@@ -102,8 +108,6 @@ void GetInputs(int *nodeCount, int *edgeCount, std::vector<Edge> *globalEdges, s
     return;
 }
 
-
-
 int main()
 {
     // MAP
@@ -116,4 +120,6 @@ int main()
     const int maxEnergy = 1000;
 
     GetInputs(&nodeCount, &edgeCount, &edgeObjects, &nodeObjects);
+
+    return 0;
 }
