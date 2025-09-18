@@ -1,8 +1,11 @@
+#include <deque>
 #include <iostream>
 #include <ostream>
+#include <sstream>
+#include <string>
 #include <unordered_map>
 #include <vector>
-#include <deque>
+
 
 /*
         ========== DATA AND MODELS =============
@@ -51,11 +54,10 @@ struct Node {
 */
 
 Node *GetorCreateNode(std::unordered_map<std::string, Node *> &nodeMap,
-                      std::deque<Node> &globalNodes, const std::string name,
-                      NodeType type = NodeType::DEFAULT) {
+                      std::deque<Node> &globalNodes, const std::string name) {
   if (nodeMap.find(name) == nodeMap.end()) {
     // Construct node inside globalNodes
-    globalNodes.push_back(Node{name, type, {}});
+    globalNodes.push_back(Node{name, DEFAULT, {}});
     Node *nodePtr =
         &globalNodes.back(); // get pointer to the node in the vector
     nodeMap[name] = nodePtr;
@@ -63,15 +65,68 @@ Node *GetorCreateNode(std::unordered_map<std::string, Node *> &nodeMap,
   return nodeMap[name];
 }
 
+bool TryChangeNodeType(std::unordered_map<std::string, Node *> &nodeMap,
+                       const std::string nodeName, const NodeType targetType) {
+  if (nodeMap.find(nodeName) != nodeMap.end()) {
+    nodeMap[nodeName]->type = targetType;
+    return true;
+  } else {
+    return false;
+  }
+}
+
+void PrintSettings(const std::deque<Node>& nodes,
+                   const std::deque<Edge>& edges,
+                   const Node* startNode,
+                   const Node* endNode,
+                   int globalTime) {
+    std::cout << "\n===== MAP SUMMARY =====\n";
+
+    // Nodes
+    std::cout << "Nodes:\n";
+    for (const auto& n : nodes) {
+        std::cout << " - " << n.name << " (Type: ";
+        switch (n.type) {
+            case DEFAULT:    std::cout << "DEFAULT"; break;
+            case REST:       std::cout << "REST"; break;
+            case ELECTRICAL: std::cout << "ELECTRICAL"; break;
+            case MECHANIC:   std::cout << "MECHANIC"; break;
+            case CHARGING:   std::cout << "CHARGING"; break;
+        }
+        std::cout << "), Connected edges: " << n.connectedEdges.size() << "\n";
+    }
+
+    // Edges
+    std::cout << "\nEdges:\n";
+    int i = 0;
+    for (const auto& e : edges) {
+        std::cout << " - Edge " << i++ 
+                  << " (Length: " << e.length 
+                  << ", Obs: " << e.obs
+                  << ", Energy: " << e.energyNeeded << ") connects: ";
+        for (const auto* n : e.connectedNodes) {
+            std::cout << n->name << " ";
+        }
+        std::cout << "\n";
+    }
+
+    // Start/End
+    std::cout << "\nStart node: " << (startNode ? startNode->name : "None") << "\n";
+    std::cout << "End node:   " << (endNode ? endNode->name : "None") << "\n";
+
+    // Time
+    std::cout << "Starting time: " << globalTime << " minutes\n";
+
+    std::cout << "========================\n";
+}
+
 /*
         ============== CORE FUNCTIONS ===================
 */
 
 void STNodeInput(std::unordered_map<std::string, Node *> &nodeMap,
-                 Node *&startNode,
-                 Node *&endNode) {
+                 Node *&startNode, Node *&endNode) {
   std::string startNodeName, endNodeName;
-  int jamMulai;
 
   while (true) {
     std::cout << "*start node* *end node*: ";
@@ -87,9 +142,32 @@ void STNodeInput(std::unordered_map<std::string, Node *> &nodeMap,
   }
 }
 
+void NodeTypeInput(std::unordered_map<std::string, Node *> &nodeMap,
+                   const std::string prompt, const NodeType type) {
+  std::string line;
+
+  std::cout
+      << std::endl
+      << prompt +
+             " point node (pisah dengan spasi. Input - jika berhenti/null): ";
+  std::getline(std::cin >> std::ws, line);
+
+  std::istringstream iss(line);
+  std::string nodeName;
+
+  while (iss >> nodeName) {
+    if (nodeName == "-")
+      break;
+
+    if (!TryChangeNodeType(nodeMap, nodeName, type)) {
+      std::cout << "Invalid node: " << nodeName << "\n";
+    }
+  }
+}
+
 void GetInputs(int *nodeCount, int *edgeCount, std::deque<Edge> *globalEdges,
                std::deque<Node> *globalNodes, Node *&startNode,
-               Node *&endNode) {
+               Node *&endNode, int *globalTime) {
   std::unordered_map<std::string, Node *> nodeMap;
 
   std::cout << "*Jumlah node* *jumlah edge*: ";
@@ -126,6 +204,16 @@ void GetInputs(int *nodeCount, int *edgeCount, std::deque<Edge> *globalEdges,
             << "Setup tipe node dimulai!" << std::endl;
 
   STNodeInput(nodeMap, startNode, endNode);
+  NodeTypeInput(nodeMap, "Rest", REST);
+  NodeTypeInput(nodeMap, "Charging", CHARGING);
+  NodeTypeInput(nodeMap, "Mechanic", MECHANIC);
+  NodeTypeInput(nodeMap, "Electrical", ELECTRICAL);
+
+  int awalJam;
+  std::cout << "Jam awal perjalanan (dalam satuan jam): ";
+  std::cin >> awalJam;
+  *globalTime = awalJam * 60;
+
   // TODO: kerjain sisa input input
 
   return;
@@ -143,7 +231,8 @@ int main() {
   const int maxEnergy = 1000;
 
   GetInputs(&nodeCount, &edgeCount, &edgeObjects, &nodeObjects, startNode,
-            endNode);
+            endNode, &globalTime);
 
+  PrintSettings(nodeObjects, edgeObjects, startNode, endNode, globalTime);
   return 0;
 }
