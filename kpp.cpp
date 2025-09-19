@@ -75,49 +75,56 @@ bool TryChangeNodeType(std::unordered_map<std::string, Node *> &nodeMap,
   }
 }
 
-void PrintSettings(const std::deque<Node>& nodes,
-                   const std::deque<Edge>& edges,
-                   const Node* startNode,
-                   const Node* endNode,
-                   int globalTime) {
-    std::cout << "\n===== MAP SUMMARY =====\n";
+void PrintSettings(const std::deque<Node> &nodes, const std::deque<Edge> &edges,
+                   const Node *startNode, const Node *endNode, int globalTime) {
+  std::cout << "\n===== MAP SUMMARY =====\n";
 
-    // Nodes
-    std::cout << "Nodes:\n";
-    for (const auto& n : nodes) {
-        std::cout << " - " << n.name << " (Type: ";
-        switch (n.type) {
-            case DEFAULT:    std::cout << "DEFAULT"; break;
-            case REST:       std::cout << "REST"; break;
-            case ELECTRICAL: std::cout << "ELECTRICAL"; break;
-            case MECHANIC:   std::cout << "MECHANIC"; break;
-            case CHARGING:   std::cout << "CHARGING"; break;
-        }
-        std::cout << "), Connected edges: " << n.connectedEdges.size() << "\n";
+  // Nodes
+  std::cout << "Nodes:\n";
+  for (const auto &n : nodes) {
+    std::cout << " - " << n.name << " (Type: ";
+    switch (n.type) {
+    case DEFAULT:
+      std::cout << "DEFAULT";
+      break;
+    case REST:
+      std::cout << "REST";
+      break;
+    case ELECTRICAL:
+      std::cout << "ELECTRICAL";
+      break;
+    case MECHANIC:
+      std::cout << "MECHANIC";
+      break;
+    case CHARGING:
+      std::cout << "CHARGING";
+      break;
     }
+    std::cout << "), Connected edges: " << n.connectedEdges.size() << "\n";
+  }
 
-    // Edges
-    std::cout << "\nEdges:\n";
-    int i = 0;
-    for (const auto& e : edges) {
-        std::cout << " - Edge " << i++ 
-                  << " (Length: " << e.length 
-                  << ", Obs: " << e.obs
-                  << ", Energy: " << e.energyNeeded << ") connects: ";
-        for (const auto* n : e.connectedNodes) {
-            std::cout << n->name << " ";
-        }
-        std::cout << "\n";
+  // Edges
+  std::cout << "\nEdges:\n";
+  int i = 0;
+  for (const auto &e : edges) {
+    std::cout << " - Edge " << i++ << " (Length: " << e.length
+              << ", Obs: " << e.obs << ", Energy: " << e.energyNeeded
+              << ") connects: ";
+    for (const auto *n : e.connectedNodes) {
+      std::cout << n->name << " ";
     }
+    std::cout << "\n";
+  }
 
-    // Start/End
-    std::cout << "\nStart node: " << (startNode ? startNode->name : "None") << "\n";
-    std::cout << "End node:   " << (endNode ? endNode->name : "None") << "\n";
+  // Start/End
+  std::cout << "\nStart node: " << (startNode ? startNode->name : "None")
+            << "\n";
+  std::cout << "End node:   " << (endNode ? endNode->name : "None") << "\n";
 
-    // Time
-    std::cout << "Starting time: " << globalTime << " minutes\n";
+  // Time
+  std::cout << "Starting time: " << globalTime << " minutes\n";
 
-    std::cout << "========================\n";
+  std::cout << "========================\n";
 }
 
 /*
