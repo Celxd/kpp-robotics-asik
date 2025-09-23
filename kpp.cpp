@@ -8,7 +8,6 @@
 #include <sstream>
 #include <string>
 #include <unordered_map>
-#include <utility>
 #include <vector>
 
 /*
@@ -28,8 +27,8 @@ struct Edge {
     energyNeeded = length + obs;
   }
 
-  void TravelEdge(int globalTime) {
-    (globalTime % 2 == 0) ? energyNeeded *= 0.8 : energyNeeded *= 1.3;
+  int GetEnergyNeeded(int globalTime) {
+    return (globalTime % 2 == 0) ? energyNeeded * 0.8 : energyNeeded * 1.3;
   }
 };
 
@@ -59,6 +58,16 @@ struct Node {
   }
 };
 
+struct DijkstraNode {
+  Node *node;
+  int spentEnergy; // total energy consumed so far
+  int time;        // minutes since start
+
+  bool operator>(const DijkstraNode &other) const {
+    return spentEnergy > other.spentEnergy;
+  }
+};
+
 /*
         ============= HELPERS ==================
 */
@@ -68,8 +77,7 @@ Node *GetorCreateNode(std::unordered_map<std::string, Node *> &nodeMap,
   if (nodeMap.find(name) == nodeMap.end()) {
     // Construct node inside globalNodes
     globalNodes.push_back(Node{name, DEFAULT, {}});
-    Node *nodePtr =
-        &globalNodes.back(); // get pointer to the node in the vector
+    Node *nodePtr = &globalNodes.back();
     nodeMap[name] = nodePtr;
   }
   return nodeMap[name];
@@ -188,38 +196,75 @@ void GetInputs(int *nodeCount, int *edgeCount, std::deque<Edge> *globalEdges,
                int *globalTime) {
   std::unordered_map<std::string, Node *> nodeMap;
 
-  std::cout << "*Jumlah node* *jumlah edge*: ";
-  std::cin >> *nodeCount >> *edgeCount;
+  while (true) {
+    std::cout << "*Jumlah node* *jumlah edge*: ";
+    std::cin >> *nodeCount >> *edgeCount;
 
-  std::cout << std::endl
-            << "==== SET UP EDGE ====" << std::endl
-            << "format: node1 node2 panjangEdge obstacleEdge" << std::endl;
+    if (*edgeCount >= *nodeCount - 1)
+      break;
 
-  for (int i = 0; i < *edgeCount; i++) {
-    std::string nodeName1, nodeName2;
-    int edgeLength, obs;
-
-    std::cout << "Edge ke-" << i << ": ";
-    std::cin >> nodeName1 >> nodeName2 >> edgeLength >> obs;
-    std::cout << std::endl;
-
-    // Create Nodes
-    Node *n1 = GetorCreateNode(nodeMap, *globalNodes, nodeName1);
-    Node *n2 = GetorCreateNode(nodeMap, *globalNodes, nodeName2);
-
-    // Create edge
-    globalEdges->emplace_back(edgeLength, obs);
-    Edge *edgePtr = &globalEdges->back();
-
-    // Link edge <-> globalNodes
-    edgePtr->connectedNodes.push_back(n1);
-    edgePtr->connectedNodes.push_back(n2);
-
-    n1->connectedEdges.push_back(edgePtr);
-    n2->connectedEdges.push_back(edgePtr);
+    std::cout << "Jumlah edge minimal harus " << *nodeCount - 1
+              << " agar semua node bisa terhubung.\n";
   }
-  std::cout << "Edge setup finished!" << std::endl
-            << "Setup tipe node dimulai!" << std::endl;
+  while (true) {
+    globalEdges->clear();
+    globalNodes->clear();
+    nodeMap.clear();
+
+    std::cout << std::endl
+              << "==== SET UP EDGE ====" << std::endl
+              << "format: asalNode tujuanNode panjangEdge obstacleEdge"
+              << std::endl;
+
+    bool edgeSetupFailed = false;
+
+    for (int i = 0; i < *edgeCount; i++) {
+      std::string nodeName1, nodeName2;
+      int edgeLength, obs;
+
+      std::cout << "Edge ke-" << i << ": ";
+      std::cin >> nodeName1 >> nodeName2 >> edgeLength >> obs;
+
+      // --- Check node quota ---
+      int newNodesCount = 0;
+      if (nodeMap.find(nodeName1) == nodeMap.end())
+        newNodesCount++;
+      if (nodeMap.find(nodeName2) == nodeMap.end())
+        newNodesCount++;
+
+      if (globalNodes->size() + newNodesCount > *nodeCount) {
+        std::cout << "Jumlah node dari semua edge melebihi " << *nodeCount
+                  << ". Ulangi input edge ini!\n";
+        i--;
+        continue;
+      }
+
+      // Create Nodes
+      Node *n1 = GetorCreateNode(nodeMap, *globalNodes, nodeName1);
+      Node *n2 = GetorCreateNode(nodeMap, *globalNodes, nodeName2);
+
+      // Create edge
+      globalEdges->emplace_back(edgeLength, obs);
+      Edge *edgePtr = &globalEdges->back();
+
+      // Link edge <-> globalNodes
+      edgePtr->connectedNodes.push_back(n1);
+      edgePtr->connectedNodes.push_back(n2);
+
+      n1->connectedEdges.push_back(edgePtr);
+      n2->connectedEdges.push_back(edgePtr);
+    }
+
+    if ((int)globalNodes->size() < *nodeCount) {
+      std::cout << "Jumlah node dari semua edge kurang dari " << *nodeCount
+                << ". Ulangi seluruh setup edge!\n";
+      continue;
+    }
+
+    std::cout << "Edge setup finished!" << std::endl
+              << "Setup tipe node dimulai!" << std::endl;
+    break;
+  }
 
   STNodeInput(nodeMap, startNode, endNode);
   NodeTypeInput(nodeMap, "Rest", REST);
@@ -235,69 +280,65 @@ void GetInputs(int *nodeCount, int *edgeCount, std::deque<Edge> *globalEdges,
   return;
 }
 
-// TODO: dijkstra algorithm wtf am i doing actually wth
-
 std::vector<Node *> Dijkstra(std::deque<Node> *globalNodes, Node *startNode,
                              Node *endNode,
                              std::unordered_map<Node *, int> &nodesToEnergy,
-                             std::unordered_map<Node *, int> &nodesToTime) {
-  std::unordered_map<Node *, Node *> nodesToPrev;
-  std::priority_queue<std::pair<int, Node *>,
-                      std::vector<std::pair<int, Node *>>,
-                      std::greater<std::pair<int, Node *>>>
-      toVisitNodes;
+                             std::unordered_map<Node *, int> &nodesToTime,
+                             int startTime) {
 
-  for (Node &currentNode : *globalNodes) {
-    nodesToEnergy[&currentNode] = std::numeric_limits<int>::max();
-    nodesToPrev[&currentNode] = nullptr;
-    nodesToTime[&currentNode] = 0;
+  std::priority_queue<DijkstraNode, std::vector<DijkstraNode>,
+                      std::greater<DijkstraNode>>
+      dijkstraNodePQ;
+
+  std::unordered_map<Node *, Node *> prev;
+
+  for (Node &n : *globalNodes) {
+    nodesToEnergy[&n] = std::numeric_limits<int>::max();
+    nodesToTime[&n] = std::numeric_limits<int>::max();
+    prev[&n] = nullptr;
   }
 
   nodesToEnergy[startNode] = 0;
-  nodesToPrev[startNode] = nullptr;
-  toVisitNodes.push(std::make_pair(0, startNode));
+  nodesToTime[startNode] = startTime;
+  dijkstraNodePQ.push({startNode, 0, startTime});
 
-  while (!toVisitNodes.empty()) {
-    int spentEnergy = toVisitNodes.top().first;
-    Node *currentNode = toVisitNodes.top().second;
+  while (!dijkstraNodePQ.empty()) {
+    DijkstraNode current = dijkstraNodePQ.top();
+    dijkstraNodePQ.pop();
 
-    toVisitNodes.pop();
-
-    if (spentEnergy > nodesToEnergy[currentNode])
-      continue;
-    if (currentNode == endNode)
+    if (current.spentEnergy > nodesToEnergy[current.node])
       continue;
 
-    for (auto currentEdge : currentNode->connectedEdges) {
-      Node *neighborNode = (currentEdge->connectedNodes[0] == currentNode)
-                               ? currentEdge->connectedNodes[1]
-                               : currentEdge->connectedNodes[0];
+    if (current.node == endNode)
+      break;
 
-      int newEnergy = spentEnergy + currentEdge->energyNeeded;
-      int newTime = 2 + nodesToTime[currentNode];
+    for (Edge *e : current.node->connectedEdges) {
+      Node *neighbor = (e->connectedNodes[0] == current.node)
+                           ? e->connectedNodes[1]
+                           : e->connectedNodes[0];
 
-      if (newEnergy < nodesToEnergy[neighborNode]) {
-        nodesToEnergy[neighborNode] = newEnergy;
-        nodesToPrev[neighborNode] = currentNode;
-        nodesToTime[neighborNode] = newTime;
+      int edgeEnergy = e->GetEnergyNeeded(current.time);
+      int arrivalEnergy = current.spentEnergy + edgeEnergy;
+      int arrivalTime = current.time + 2;
 
-        toVisitNodes.push(std::make_pair(newEnergy, neighborNode));
+      if (arrivalEnergy < nodesToEnergy[neighbor]) {
+        nodesToEnergy[neighbor] = arrivalEnergy;
+        nodesToTime[neighbor] = arrivalTime;
+        prev[neighbor] = current.node;
+
+        dijkstraNodePQ.push({neighbor, arrivalEnergy, arrivalTime});
       }
     }
   }
 
-  // If unreachable
-  if (nodesToEnergy[endNode] == std::numeric_limits<int>::max()) {
-    return {}; // empty path
-  }
+  // reconstruct path
+  if (nodesToEnergy[endNode] == std::numeric_limits<int>::max())
+    return {}; // unreachable
 
   std::vector<Node *> path;
-
-  for (Node *iteratorLocation = endNode; iteratorLocation != nullptr;
-       iteratorLocation = nodesToPrev[iteratorLocation]) {
-    path.push_back(iteratorLocation);
+  for (Node *v = endNode; v != nullptr; v = prev[v]) {
+    path.push_back(v);
   }
-
   std::reverse(path.begin(), path.end());
   return path;
 }
@@ -320,9 +361,19 @@ int main() {
 
   // Run Dijkstra
   std::unordered_map<Node *, int> nodesToEnergy, nodesToTime;
-  std::vector<Node *> path =
-      Dijkstra(&nodeObjects, startNode, endNode, nodesToEnergy, nodesToTime);
+  std::vector<Node *> path = Dijkstra(&nodeObjects, startNode, endNode,
+                                      nodesToEnergy, nodesToTime, globalTime);
 
+  // If habis energy
+  globalEnergy = maxEnergy;
+  int requiredEnergy = nodesToEnergy[endNode];
+
+  if (path.empty() || requiredEnergy > globalEnergy) {
+    std::cout << "\nRobot gagal dalam mencapai tujuan :(\n";
+    return 0;
+  }
+
+  // Normal output
   std::cout << "\nTotal energi minimum: " << nodesToEnergy[endNode] << "\n";
 
   std::cout << "Jalur: ";
@@ -335,7 +386,7 @@ int main() {
 
   std::cout << "Waktu tiba:\n";
   for (auto *n : path) {
-    std::cout << n->name << " (menit " << nodesToTime[n] << ")\n";
+    std::cout << n->name << " (menit " << nodesToTime[n] - globalTime << ")\n";
   }
 
   return 0;
