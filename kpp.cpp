@@ -44,18 +44,6 @@ struct Node {
   std::string name;
   enum NodeType type;
   std::vector<Edge *> connectedEdges;
-
-  void Charge(int *globalEnergyPTR, int maxEnergy) {
-    if (type == NodeType::CHARGING) {
-      *globalEnergyPTR = maxEnergy;
-    }
-  }
-
-  void Rest(int *globalTime) {
-    if (type == REST) {
-      *globalTime += 1;
-    }
-  }
 };
 
 struct DijkstraNode {
@@ -193,7 +181,7 @@ void NodeTypeInput(std::unordered_map<std::string, Node *> &nodeMap,
 
 void GetInputs(int *nodeCount, int *edgeCount, std::deque<Edge> *globalEdges,
                std::deque<Node> *globalNodes, Node *&startNode, Node *&endNode,
-               int *globalTime) {
+               double *globalTime) {
   std::unordered_map<std::string, Node *> nodeMap;
 
   while (true) {
@@ -272,7 +260,7 @@ void GetInputs(int *nodeCount, int *edgeCount, std::deque<Edge> *globalEdges,
   NodeTypeInput(nodeMap, "Mechanic", MECHANIC);
   NodeTypeInput(nodeMap, "Electrical", ELECTRICAL);
 
-  int awalJam;
+  double awalJam;
   std::cout << "Jam awal perjalanan (dalam satuan jam): ";
   std::cin >> awalJam;
   *globalTime = awalJam * 60;
@@ -284,7 +272,7 @@ std::vector<Node *> Dijkstra(std::deque<Node> *globalNodes, Node *startNode,
                              Node *endNode,
                              std::unordered_map<Node *, int> &nodesToEnergy,
                              std::unordered_map<Node *, int> &nodesToTime,
-                             int startTime) {
+                             double startTime) {
 
   std::priority_queue<DijkstraNode, std::vector<DijkstraNode>,
                       std::greater<DijkstraNode>>
@@ -311,6 +299,11 @@ std::vector<Node *> Dijkstra(std::deque<Node> *globalNodes, Node *startNode,
 
     if (current.node == endNode)
       break;
+    
+    int currentTime = current.time;  
+    if(current.node->type == NodeType::CHARGING && (currentTime % 2 == 1)) {
+      ++currentTime;
+    }
 
     for (Edge *e : current.node->connectedEdges) {
       Node *neighbor = (e->connectedNodes[0] == current.node)
@@ -351,7 +344,8 @@ int main() {
   Node *startNode, *endNode;
 
   // DATA
-  int globalTime, globalEnergy;
+  int globalEnergy;
+  double globalTime;
   const int maxEnergy = 1000;
 
   GetInputs(&nodeCount, &edgeCount, &edgeObjects, &nodeObjects, startNode,
