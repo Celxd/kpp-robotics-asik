@@ -27,8 +27,8 @@ struct Edge {
     energyNeeded = length + obs;
   }
 
-  int GetEnergyNeeded(int globalTime) {
-    return (globalTime % 2 == 0) ? energyNeeded * 0.8 : energyNeeded * 1.3;
+  int GetEnergyNeeded(int currentTime) {
+    return (currentTime % 2 == 0) ? energyNeeded * 0.8 : energyNeeded * 1.3;
   }
 };
 
@@ -44,24 +44,12 @@ struct Node {
   std::string name;
   enum NodeType type;
   std::vector<Edge *> connectedEdges;
-
-  void Charge(int *globalEnergyPTR, int maxEnergy) {
-    if (type == NodeType::CHARGING) {
-      *globalEnergyPTR = maxEnergy;
-    }
-  }
-
-  void Rest(int *globalTime) {
-    if (type == REST) {
-      *globalTime += 1;
-    }
-  }
 };
 
 struct DijkstraNode {
   Node *node;
-  int spentEnergy; // total energy consumed so far
-  int time;        // minutes since start
+  int spentEnergy;
+  double spentTime;
 
   bool operator>(const DijkstraNode &other) const {
     return spentEnergy > other.spentEnergy;
@@ -193,7 +181,7 @@ void NodeTypeInput(std::unordered_map<std::string, Node *> &nodeMap,
 
 void GetInputs(int *nodeCount, int *edgeCount, std::deque<Edge> *globalEdges,
                std::deque<Node> *globalNodes, Node *&startNode, Node *&endNode,
-               int *globalTime) {
+               double *globalTime) {
   std::unordered_map<std::string, Node *> nodeMap;
 
   while (true) {
@@ -272,7 +260,7 @@ void GetInputs(int *nodeCount, int *edgeCount, std::deque<Edge> *globalEdges,
   NodeTypeInput(nodeMap, "Mechanic", MECHANIC);
   NodeTypeInput(nodeMap, "Electrical", ELECTRICAL);
 
-  int awalJam;
+  double awalJam;
   std::cout << "Jam awal perjalanan (dalam satuan jam): ";
   std::cin >> awalJam;
   *globalTime = awalJam * 60;
@@ -284,7 +272,7 @@ std::vector<Node *> Dijkstra(std::deque<Node> *globalNodes, Node *startNode,
                              Node *endNode,
                              std::unordered_map<Node *, int> &nodesToEnergy,
                              std::unordered_map<Node *, int> &nodesToTime,
-                             int startTime) {
+                             double startTime) {
 
   std::priority_queue<DijkstraNode, std::vector<DijkstraNode>,
                       std::greater<DijkstraNode>>
@@ -312,14 +300,19 @@ std::vector<Node *> Dijkstra(std::deque<Node> *globalNodes, Node *startNode,
     if (current.node == endNode)
       break;
 
+    int currentTime = current.spentTime;
+    if (current.node->type == NodeType::REST && (currentTime % 2 == 1)) {
+      ++currentTime;
+    }
+
     for (Edge *e : current.node->connectedEdges) {
       Node *neighbor = (e->connectedNodes[0] == current.node)
                            ? e->connectedNodes[1]
                            : e->connectedNodes[0];
 
-      int edgeEnergy = e->GetEnergyNeeded(current.time);
+      int edgeEnergy = e->GetEnergyNeeded(currentTime);
       int arrivalEnergy = current.spentEnergy + edgeEnergy;
-      int arrivalTime = current.time + 2;
+      double arrivalTime = currentTime + 2;
 
       if (arrivalEnergy < nodesToEnergy[neighbor]) {
         nodesToEnergy[neighbor] = arrivalEnergy;
@@ -351,7 +344,8 @@ int main() {
   Node *startNode, *endNode;
 
   // DATA
-  int globalTime, globalEnergy;
+  int globalEnergy;
+  double globalTime;
   const int maxEnergy = 1000;
 
   GetInputs(&nodeCount, &edgeCount, &edgeObjects, &nodeObjects, startNode,
